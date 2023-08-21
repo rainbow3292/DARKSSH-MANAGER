@@ -1140,7 +1140,7 @@ ifconfig-pool-persist ipp.txt" >/etc/openvpn/server.conf
 				esac
 				echo "keepalive 10 120
 float
-cipher AES-256-CBC
+cipher AES-128-CBC
 comp-lzo yes
 user nobody
 group $GROUPNAME
@@ -1237,7 +1237,7 @@ exit 0' >$RCLOCAL
 				persist-key
 				persist-tun
 				remote-cert-tls server
-				cipher AES-256-CBC
+				cipher AES-128-CBC
 				comp-lzo yes
 				setenv opt block-outside-dns
 				key-direction 1
