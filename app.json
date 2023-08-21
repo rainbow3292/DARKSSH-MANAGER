@@ -10,7 +10,7 @@
         "vpn-userbot"
     ],
     "website": "https://youtech.live",
-    "repository": "https://github.com/sbatrow/DARKSSH-MANAGER",
+    "repository": "https://github.com/rainbow3292/DARKSSH-MANAGER",
     "success_url": "https://t.me/YouTech_Support",
     "env": {
         "ADMINS": {
