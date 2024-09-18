@@ -35,5 +35,5 @@ fun_multilogin() {
 while true; do
     echo 'verificando...'
 	fun_multilogin > /dev/null 2>&1
-	sleep 4s
+	sleep 3s
 done
