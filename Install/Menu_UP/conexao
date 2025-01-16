@@ -225,7 +225,7 @@ ifconfig-pool-persist ipp.txt" > /etc/openvpn/server.conf
 		1)
 		# 
 		# 
-		if grep -q "127.0.0.53" "/etc/resolv.conf"; then
+		if grep -q "127.0.0.55" "/etc/resolv.conf"; then
 			RESOLVCONF='/run/systemd/resolve/resolv.conf'
 		else
 			RESOLVCONF='/etc/resolv.conf'
