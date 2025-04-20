@@ -66,5 +66,5 @@ do
 		    fi
 		fi
      done < "$database"
-     sleep 3s
+     sleep 60s
 done
