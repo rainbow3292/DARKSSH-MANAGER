@@ -1,0 +1,60 @@
+#!/bin/bash
+#====================================================
+#    SCRIPT: LIMITER DARKSSH MANAGER
+#    DESENVOLVIDO POR: CRAZY_VPN
+#    CONTATO TELEGRAM: http://t.me/crazy_vpn
+#    CANAL TELEGRAM: http://t.me/darkssh
+#====================================================
+
+clear
+database="/root/usuarios.db"
+
+fun_multilogin() {
+    (
+        while read -r user; do
+            # Get limit from database, default to 1
+            limit=$(grep -w "$user" "$database" | awk '{print $2}')
+            [[ -z "$limit" ]] && limit=1
+
+            # Count SSH sessions using 'who'
+            conssh=$(who | grep "^$user" | wc -l)
+
+            if [[ "$conssh" -gt "$limit" ]]; then
+                echo "[SSH LIMIT] $user has $conssh sessions (limit: $limit). Kicking..."
+                # Kill SSH processes owned by user (more reliable)
+                pgrep -u "$user" -f sshd | xargs -r kill -9
+            fi
+
+            # Count OpenVPN sessions (if status log exists)
+            if [[ -e /etc/openvpn/openvpn-status.log ]]; then
+                ovp=$(grep -E ",$user," /etc/openvpn/openvpn-status.log | wc -l)
+
+                if [[ "$ovp" -gt "$limit" ]]; then
+                    echo "[OVPN LIMIT] $user has $ovp OpenVPN sessions (limit: $limit). Kicking..."
+                    # Calculate how many to kill
+                    pidokill=$((ovp - limit))
+
+                    # Extract OpenVPN client IDs
+                    listpid=$(grep -E ",$user," /etc/openvpn/openvpn-status.log | cut -d "," -f3 | head -n "$pidokill")
+
+                    while read -r ovpids; do
+                        (
+                            sleep 0.2
+                            telnet localhost 7777 <<-EOF
+                                kill $ovpids
+EOF
+                        ) &>/dev/null &
+                    done <<< "$listpid"
+                fi
+            fi
+
+        done <<< "$(awk -F: '$3 >= 1000 {print $1}' /etc/passwd)"
+    ) &
+}
+
+# Main loop
+while true; do
+    echo "[+] Checking active user sessions..."
+    fun_multilogin > /dev/null 2>&1
+    sleep 39
+done
