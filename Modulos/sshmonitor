@@ -1,0 +1,99 @@
+#!/bin/bash
+
+while true; do
+    clear
+    if [[ -e /usr/lib/licence ]]; then
+        database="/root/usuarios.db"
+
+        fun_drop () {
+            port_dropbear=$(ps aux | grep dropbear | awk 'NR==1 {print $17}')
+            log=/var/log/auth.log
+            loginsukses='Password auth succeeded'
+            pids=$(ps ax | grep dropbear | grep " $port_dropbear" | awk '{print $1}')
+            for pid in $pids; do
+                pidlogs=$(grep $pid $log | grep "$loginsukses" | awk '{print $3}')
+                for pidend in $pidlogs; do :; done
+                if [ "$pidend" ]; then
+                    login=$(grep $pid $log | grep "$pidend" | grep "$loginsukses")
+                    user=$(echo $login | awk '{print $10}' | sed -r "s/'/ /g")
+                    echo "$user"
+                fi
+            done
+        }
+
+        echo -e "\E[44;1;37m User         Status       Connection     Time   \E[0m"
+        echo ""
+
+        user_entries=()
+
+        while read usline; do
+            user="$(echo $usline | cut -d' ' -f1)"
+            s2ssh="$(echo $usline | cut -d' ' -f2)"
+
+            if [ "$(getent passwd "$user")" ]; then
+                sqd=$(ps -u "$user" | grep sshd | wc -l)
+            else
+                sqd=0
+            fi
+
+            [[ -z "$sqd" ]] && sqd=0
+
+            if [[ -e /etc/openvpn/openvpn-status.log ]]; then
+                ovp=$(grep -E ,"$user", /etc/openvpn/openvpn-status.log | wc -l)
+            else
+                ovp=0
+            fi
+
+            if netstat -nltp | grep 'dropbear' > /dev/null; then
+                drop=$(fun_drop | grep "^$user$" | wc -l)
+            else
+                drop=0
+            fi
+
+            cnx=$((sqd + drop))
+            conex=$((cnx + ovp))
+
+            [[ $conex -eq 0 ]] && continue  # skip offline users
+
+            # Time Calculation
+            if [[ $cnx -gt 0 ]]; then
+                pid=$(ps -u "$user" | grep sshd | awk 'NR==1 {print $1}')
+                tst=$(ps -o etime= -p $pid 2>/dev/null)
+                [[ ${#tst} -le 5 ]] && timerr="00:$tst" || timerr="$tst"
+            elif [[ $ovp -gt 0 ]]; then
+                tmp2=$(printf '%(%H:%M:%S)T\n')
+                tmp1=$(grep -w "$user" /etc/openvpn/openvpn-status.log | awk '{print $4}' | head -1)
+                [[ -z "$tmp1" ]] && tmp1="00:00:00" && tmp2="00:00:00"
+
+                var1=$(echo $tmp1 | cut -d':' -f1)
+                var2=$(echo $tmp1 | cut -d':' -f2)
+                var3=$(echo $tmp1 | cut -d':' -f3)
+                var4=$(echo $tmp2 | cut -d':' -f1)
+                var5=$(echo $tmp2 | cut -d':' -f2)
+                var6=$(echo $tmp2 | cut -d':' -f3)
+
+                calc1=$((10#$var1 * 3600 + 10#$var2 * 60 + 10#$var3))
+                calc2=$((10#$var4 * 3600 + 10#$var5 * 60 + 10#$var6))
+                seg=$((calc2 - calc1))
+                min=$((seg / 60))
+                seg=$((seg % 60))
+                hor=$((min / 60))
+                min=$((min % 60))
+                timerr=$(printf "%02d:%02d:%02d" $hor $min $seg)
+            else
+                timerr="00:00:00"
+            fi
+
+            status="\033[1;32mOnline\033[1;33m  "
+            user_entries+=("$conex\t\033[1;33m$(printf '%-17s%-14b%-10s%s' " $user" "$status" "$conex/$s2ssh" "$timerr")")
+        done < "$database"
+
+        IFS=$'\n' sorted=($(printf "%s\n" "${user_entries[@]}" | sort -nrk1))
+        for entry in "${sorted[@]}"; do
+            echo -e "${entry#*\t}"
+            echo -e "\033[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+        done
+    fi
+
+    sleep 10  # Refresh interval (in seconds)
+done
